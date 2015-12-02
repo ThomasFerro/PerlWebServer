@@ -3,9 +3,10 @@
 TODO
 --------
 - [x] Configuration
-- [ ] Traitement des GET...
-  - [ ] ...vers le système de fichiers
-  - [ ] ...vers des programmes CGI
+- [ ] Requêtes GET
+  - [ ] Vérification de la requête
+  - [ ] Traitement des requêtes vers le système de fichiers
+  - [ ] Traitement des requêtes vers des programmes CGI
 - [ ] Journal des évènements
 - [ ] Traitement des requêtes en parallèle
 - [ ] Gestion des erreurs
