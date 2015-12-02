@@ -6,37 +6,31 @@ sub order {
 		@variables = ("port", "error", "index", "logfile", "clients");
 		#Verification de la variable
 		grep(/^$order[0]/, @variables) or die "Invalid variable : $!";
-		$variables{$order[0]} = $order[1];
+		$confs{"set"}{$order[0]} = $order[1];
 	}
 	else {
 		@order = split / /;
 		if($order[0] eq "route") {
 			#Regexp1 comme clef, Regexp2 comme valeur:
 			$order[2] eq "to" or die "Invalid route : $!";
-			$route{$order[1]} = $order[3];
+			$confs{"route"}{$order[1]} = $order[3];
 		}
 		else
 		{	
 			#Regexp1 comme clef, Regexp2 comme valeur:
 			$order[2] eq "from" or die "Invalid route : $!";
-			$exec{$order[1]} = $order[3];
+			$confs{"exec"}{$order[1]} = $order[3];
 		}
 	}
 }
 
-#Variables:
-%variables;
-$variables{$port} = 8080;
-$variables{$error} = "";
-$variables{$index} = "";
-$variables{$logfile} = "";
-$variables{$clients} = 1;
-
-#Routes statiques:
-%route;
-
-#Routes dynamiques:
-%exec;
+#Hashmap des ordres:
+%confs;
+$confs{"set"}{$port} = 8080;
+$confs{"set"}{$error} = "";
+$confs{"set"}{$index} = "";
+$confs{"set"}{$logfile} = "";
+$confs{"set"}{$clients} = 1;
 
 #Ouverture du fichier de config
 open(CONFIG, "comanche.conf") or die "open: $!";
@@ -49,7 +43,10 @@ while(<CONFIG>) {
 	if(!/^[#\t\n\ ]+/) {
 		#Verification de l'ordre
 		$order = /^set|^route|^exec/ or die "Invalid order: $!";
+		#Ajout a la hashmap correspondante
 		order $order;
 	}
 }
+
+
 print "\n";
