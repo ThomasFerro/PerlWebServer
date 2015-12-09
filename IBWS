@@ -24,6 +24,82 @@ sub order {
 	}
 }
 
+sub sendError 
+{
+	if($_[0] == 400) 
+	{
+		#Ligne de statut : VERSION CODE PHRASE\r\n
+		print("HTTP/1.1 400 \"Bad Request\"\r\n");
+
+		#En-tete de reponse :
+		print("Content-type:text/html\r\n");
+		print("Content-Length:11\r\n");
+
+		print("\r\n");
+		#Reponse : 
+		print("Bad Request\r\n");
+	}
+	elsif($_[0] == 404)
+	{
+		#Requête 404:
+		#Pour le fichier final :
+		if($confs{"route"}{"error"} != undef) 
+		{ 
+			$errorPage = $confs{"route"}{"error"}; 
+			$size = -s $errorPage; 
+		}
+		else
+		{
+			$errorPage = "error.html";
+			$size = -s $errorPage;
+		}
+		#Ligne de statut : VERSION CODE PHRASE\r\n
+		print("HTTP/1.1 404 \"Not Found\"\r\n");  
+
+		#En-tete de reponse :
+		print("Content-type:text/html\r\n");
+		$taille = -s $errorPage;
+		print("Content-Length:$taille\r\n");
+
+		print("\r\n");
+		#Reponse : 
+
+		open(HANDLE, '<', $errorPage) or die "Open : $!";
+		while(<HANDLE>) 
+		{
+			print;
+		}
+		close(HANDLE) or die "Close : $!";
+		print "\r\n";
+	}
+	elsif($_[0] == 505)
+	{
+		#Ligne de statut : VERSION CODE PHRASE\r\n
+		print("HTTP/1.1 505 \"HTTP Version Not Supported\"\r\n");
+
+		#En-tete de reponse :
+		print("Content-type:text/html\r\n");
+		print("Content-Length:26\r\n");
+
+		print("\r\n");
+		#Reponse : 
+		print("HTTP Version Not Supported\r\n");
+	}
+	elsif($_[0] == 405)
+	{
+		#Ligne de statut : VERSION CODE PHRASE\r\n
+		print("HTTP/1.1 405 \"Method Not Allowed\"\r\n");
+
+		#En-tete de reponse :
+		print("Content-type:text/html\r\n");
+		print("Content-Length:18\r\n");
+
+		print("\r\n");
+		#Reponse : 
+		print("Method Not Allowed\r\n");
+	}
+}
+
 #Hashmap des ordres:
 %confs;
 $confs{"set"}{$port} = 8080;
@@ -39,8 +115,11 @@ open(CONFIG, "comanche.conf") or die "open: $!";
 while(<CONFIG>) {
 	#Suppression des espaces
 	s/^[ \t]+//g;
-	#On ignore les commentaires
-	if(!/^[#\t\n\ ]+/) {
+	#Suppression des commentaires
+	s/#*//g;
+	#
+	if(!/^[\s\n]+/) {
+		chomp;
 		#Verification de l'ordre
 		$order = /^set|^route|^exec/ or die "Invalid order: $!";
 		#Ajout a la hashmap correspondante
@@ -48,5 +127,46 @@ while(<CONFIG>) {
 	}
 }
 
+#Requete
+while(<STDIN>) 
+{
+	@get = split(/\ /);
+	chomp(@get);
+	#Vérification de la validité de la requpête:
+	if((scalar @get != 3) || ($get[0] ne "GET") || ($get[2] ne "HTTP/1.1"))
+	{
+		if($get[2] ne "HTTP/1.1")
+		{
+			sendError(505);
+		}
+		elsif($get[0] ne "GET")
+		{
+			sendError(405);
+		}
+		else
+		{
+			sendError(400);
+		}
+	}
+	else
+	{
+		#Parcours des projections spécifiées dans le config, comparaison avec la ressource demandée
+		#Si une des projection correspond, elle est utilisée pour construire la réponse:
+		$bool = undef;
+		while(($k, $v) = each(%confs{"route"}))
+		{
+			if($get[1] =~ $k)
+			{
+				#TODO : Régler le problème : il remplace par $v et ne prend pas en compte les parenthèses (cf expand de variables dans sed)
+				$_ = $get[1];
 
-print "\n";
+				s-\${$k}-\${$v}-g;
+				print "Key : $k, Value : $v, Nouvelle route : $_\n";
+				#Essaye de construire la réponse, si le fichier est trouvé : `$bool = 1; last;`, sinon essaye avec les autres routes
+				$bool = 1;
+				last;
+			}
+		}
+		sendError(404) if !$bool;
+	}
+}
