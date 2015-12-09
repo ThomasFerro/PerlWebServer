@@ -4,7 +4,8 @@ TODO
 --------
 - [x] Configuration
 - [ ] Requêtes GET
-  - [ ] Vérification de la requête
+  - [x] Vérification de la requête
+  - [ ] Parcours des projections
   - [ ] Traitement des requêtes vers le système de fichiers
   - [ ] Traitement des requêtes vers des programmes CGI
 - [ ] Journal des évènements
@@ -14,8 +15,8 @@ TODO
   - [x] 400 Bad Request
   - [ ] 403 Forbidden
   - [x] 404 Not Found
-  - [ ] 405 Method Not Allowed
+  - [x] 405 Method Not Allowed
   - [ ] 415 Unsupported Media Type
   - [ ] 503 Service Unavailable
-  - [ ] 505 HTTP Version Not Supported
+  - [x] 505 HTTP Version Not Supported
 - [ ] Utilisation
