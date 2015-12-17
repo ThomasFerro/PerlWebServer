@@ -85,6 +85,7 @@ sub readRequest
     }
 }
 
+#Check the request's validity
 sub validateRequest 
 {
     if((scalar @get != 3) || ($get[0] ne "GET") || ($get[2] ne "HTTP/1.1"))
