@@ -6,7 +6,7 @@ TODO
 - [ ] Requêtes GET
   - [x] Vérification de la requête
   - [ ] Parcours des projections
-  - [ ] Traitement des requêtes vers le système de fichiers
+  - [x] Traitement des requêtes vers le système de fichiers
   - [ ] Traitement des requêtes vers des programmes CGI
 - [ ] Journal des évènements
 - [ ] Traitement des requêtes en parallèle
@@ -16,7 +16,7 @@ TODO
   - [ ] 403 Forbidden
   - [x] 404 Not Found
   - [x] 405 Method Not Allowed
-  - [ ] 415 Unsupported Media Type
+  - [x] 415 Unsupported Media Type
   - [ ] 503 Service Unavailable
   - [x] 505 HTTP Version Not Supported
 - [ ] Utilisation
