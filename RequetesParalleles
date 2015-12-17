@@ -1,0 +1,50 @@
+#!/usr/bin/perl
+
+use Socket;
+use POSIX ":sys_wait_h";
+
+%confs;
+$confs{"set"}{$port} = 8080;
+$port = $confs{"set"}{$port};
+$confs{"set"}{$clients} = 5;
+$clientCount = 0;
+
+socket (SERVER, PF_INET, SOCK_STREAM, getprotobyname('tcp'));
+setsockopt (SERVER, SOL_SOCKET, SO_REUSEADDR, 1);
+$addr = sockaddr_in ($port, INADDR_ANY);
+bind(SERVER, $addr) or die ("Bind : $!");
+SERVER->autoflush(1);
+listen (SERVER, SOMAXCONN) or die ("Listen : $!");
+
+while(true)
+{
+	accept (CLIENT, SERVER);
+	if($clientCount > ($confs{"set"}{$clients} - 1)) 
+	{
+		CLIENT->autoflush(1);
+		print CLIENT "Error 503\n";
+		close CLIENT;
+	}
+	else
+	{
+		$pid = fork();
+		if($pid == 0)
+		{	
+			CLIENT->autoflush(1);
+			while(<CLIENT>) {
+			    print CLIENT "client " . ($clientCount+1) . " : $_";
+			}
+			close CLIENT;
+			exit 0;
+		}
+		else
+		{
+			close CLIENT;
+			$clientCount++;
+			while(waitpid(-1, WNOHANG))
+			{
+				$clientCount--;
+			}
+		}
+	}
+}
