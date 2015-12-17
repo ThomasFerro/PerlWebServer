@@ -1,17 +1,57 @@
 #!/usr/bin/perl
 
-configLoad();
-readRequest();
+checkParameter();
+
+sub checkParameter
+{	
+	die "Parameter : start/stop/status\n" if @ARGV != 1;
+
+	if ($ARGV[0] eq "start")
+	{
+		start();		
+	}
+	elsif ($ARGV[0] eq "stop") 
+	{
+		stop();
+	}
+	elsif ($ARGV[0] eq "status")
+	{
+		status();
+	}
+	else
+	{
+		die "Incorrect parameter : start/stop/status\n";
+	}
+}
+
+#Start the server
+sub start 
+{
+	configLoad();
+	readRequest();
+}
+
+#Stop the server
+sub stop
+{
+
+}
+
+#Print the server's status
+sub status
+{
+
+}
 
 #Initialize the confs.
 sub order 
 {
-    if(s/^set ([\w]+)/$1/g) {
-	@order = split / /;
-	@variables = ("port", "error", "index", "logfile", "clients");
-	#Verification de la variable
-	grep(/^$order[0]/, @variables) or die "Invalid variable : $!";
-	$confs{"set"}{$order[0]} = $order[1];
+	if(s/^set ([\w]+)/$1/g) {
+		@order = split / /;
+		@variables = ("port", "error", "index", "logfile", "clients");
+		#Verification de la variable
+		grep(/^$order[0]/, @variables) or die "Invalid variable : $!";
+		$confs{"set"}{$order[0]} = $order[1];
     }
     else {
 	@order = split / /;
@@ -45,18 +85,18 @@ sub configLoad
 
     #Fixation des variables
     while(<CONFIG>) {
-	#Suppression des espaces
-	s/^[ \t]+//g;
-	#Suppression des commentaires
-	s/#*//g;
-	#
-	if(!/^[\s\n]+/) {
-	    chomp;
-	    #Verification de l'ordre
-	    $order = /^set|^route|^exec/ or die "Invalid order: $!";
-	    #Ajout a la hashmap correspondante
-	    order $order;
-	}
+		#Suppression des espaces
+		s/^[ \t]+//g;
+		#Suppression des commentaires
+		s/#*//g;
+		#
+		if(!/^[\s\n]+/) {
+		    chomp;
+		    #Verification de l'ordre
+		    $order = /^set|^route|^exec/ or die "Invalid order: $!";
+		    #Ajout a la hashmap correspondante
+		    order $order;
+		}
     }
 }
 
