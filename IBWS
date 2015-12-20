@@ -1,16 +1,19 @@
 #!/usr/bin/perl
 
+no warnings qw( experimental::autoderef );
+no warnings 'experimental::smartmatch';
+
 checkParameter();
 
 sub checkParameter
-{	
+{
 	die "Parameter : start/stop/status\n" if @ARGV != 1;
 
 	if ($ARGV[0] eq "start")
 	{
-		start();		
+		start();
 	}
-	elsif ($ARGV[0] eq "stop") 
+	elsif ($ARGV[0] eq "stop")
 	{
 		stop();
 	}
@@ -25,7 +28,7 @@ sub checkParameter
 }
 
 #Start the server
-sub start 
+sub start
 {
 	configLoad();
 	readRequest();
@@ -44,7 +47,7 @@ sub status
 }
 
 #Initialize the confs.
-sub order 
+sub order
 {
 	if(s/^set ([\w]+)/$1/g) {
 		@order = split / /;
@@ -52,283 +55,284 @@ sub order
 		#Verification de la variable
 		grep(/^$order[0]/, @variables) or die "Invalid variable : $!";
 		$confs{"set"}{$order[0]} = $order[1];
-    }
-    else {
-	@order = split / /;
-	if($order[0] eq "route") {
-	    #Regexp1 comme clef, Regexp2 comme valeur:
-	    $order[2] eq "to" or die "Invalid route : $!";
-	    $confs{"route"}{$order[1]} = $order[3];
 	}
-	else
-	{	
-	    #Regexp1 comme clef, Regexp2 comme valeur:
-	    $order[2] eq "from" or die "Invalid route : $!";
-	    $confs{"exec"}{$order[1]} = $order[3];
+	else {
+		@order = split / /;
+		if($order[0] eq "route") {
+			#Regexp1 comme clef, Regexp2 comme valeur:
+			$order[2] eq "to" or die "Invalid route : $!";
+			$confs{"route"}{$order[1]} = $order[3];
+		}
+		else
+		{
+			#Regexp1 comme clef, Regexp2 comme valeur:
+			$order[2] eq "from" or die "Invalid route : $!";
+			$confs{"exec"}{$order[1]} = $order[3];
+		}
 	}
-    }
 }
 
 #Load the configutation file.
-sub configLoad 
+sub configLoad
 {
-    #Hashmap des ordres:
-    %confs;
-    $confs{"set"}{$port} = 8080;
-    $confs{"set"}{$error} = "";
-    $confs{"set"}{$index} = "";
-    $confs{"set"}{$logfile} = "";
-    $confs{"set"}{$clients} = 1;
-    
-    #Ouverture du fichier de config
-    open(CONFIG, "comanche.conf") or die "open: $!";
+	#Hashmap des ordres:
+	%confs;
+	$confs{"set"}{$port} = 8080;
+	$confs{"set"}{$error} = "";
+	$confs{"set"}{$index} = "";
+	$confs{"set"}{$logfile} = "";
+	$confs{"set"}{$clients} = 1;
 
-    #Fixation des variables
-    while(<CONFIG>) {
+	#Ouverture du fichier de config
+	open(CONFIG, "comanche.conf") or die "open: $!";
+
+	#Fixation des variables
+	while(<CONFIG>) {
 		#Suppression des espaces
 		s/^[ \t]+//g;
 		#Suppression des commentaires
 		s/#*//g;
 		#
 		if(!/^[\s\n]+/) {
-		    chomp;
-		    #Verification de l'ordre
-		    $order = /^set|^route|^exec/ or die "Invalid order: $!";
-		    #Ajout a la hashmap correspondante
-		    order $order;
+			chomp;
+			#Verification de l'ordre
+			$order = /^set|^route|^exec/ or die "Invalid order: $!";
+			#Ajout a la hashmap correspondante
+			order $order;
 		}
-    }
+	}
 }
 
-sub readRequest 
+sub readRequest
 {
-    #Requete
-    while(<STDIN>) 
-    {
-	@get = split(/\ /);
-	chomp(@get);
-	#Vérification de la validité de la requpête:
-	if(validateRequest() != 0)
+	#Requete
+	while(<STDIN>)
 	{
-	    $path = $get[1];
-	    #Parcours des projections spécifiées dans le config, comparaison avec la ressource demandée
-	    #Si une des projection correspond, elle est utilisée pour construire la réponse:
-	    $bool = undef;
-	    while(($pattern, $replace) = each(%confs{"route"}))
-	    {
-		#TODO : Comparer le chemin avec les patterns de la map, utiliser une regex pour changer le chemin cas echeant
+		@get = split(/\ /);
+		chomp(@get);
+		#Vérification de la validité de la requpête:
+		if(validateRequest() != 0)
+		{
+			$path = $get[1];
+			#Parcours des projections spécifiées dans le config, comparaison avec la ressource demandée
+			#Si une des projection correspond, elle est utilisée pour construire la réponse:
+			$bool = undef;
+			%routes = each(%confs{"route"});
+			while(($pattern, $replace) = each(%routes))
+			{
+				#TODO : Comparer le chemin avec les patterns de la map, utiliser une regex pour changer le chemin cas echeant
 
-	    }
-	    #Envoie une erreur 404 ou un succes selon le résultat de la recherche du fichier
-	    checkPath($path);
+			}
+			#Envoie une erreur 404 ou un succes selon le résultat de la recherche du fichier
+			checkPath($path);
+		}
 	}
-    }
 }
 
 #Check the request's validity
-sub validateRequest 
+sub validateRequest
 {
-    if((scalar @get != 3) || ($get[0] ne "GET") || ($get[2] ne "HTTP/1.1"))
-    {
-	if(scalar @get != 3)
+	if((scalar @get != 3) || ($get[0] ne "GET") || ($get[2] ne "HTTP/1.1"))
 	{
-	    sendError(400);
+		if(scalar @get != 3)
+		{
+			sendError(400);
+		}
+		elsif($get[2] ne "HTTP/1.1")
+		{
+			sendError(505);
+		}
+		elsif($get[0] ne "GET")
+		{
+			sendError(405);
+		}
+		return 0;
 	}
-	elsif($get[2] ne "HTTP/1.1")
-	{
-	    sendError(505);
-	}
-	elsif($get[0] ne "GET")
-	{
-	    sendError(405);
-	}
-	return 0;
-    }
-    return 1;
+	return 1;
 }
 
 #Check the path, redirect it depending on his nature.
 sub checkPath
 {
-    if (! -e $path)
-    {	
-	sendError(404);
-    }
-    else
-    {
-	#Si dossier :
-	if( -d $path)
+	if (! -e $path)
 	{
-	    #On retourne le fichier "index" si il existe
-	    if ( -e "$path/$confs{\"set\"}{index}")
-	    {
-		$path = "$path/$confs{\"set\"}{index}";
-		sendOk($path, "text/html");
-	    }
-	    else
-	    {
-		#On retourne le contenu du dossier sinon
-		$path = listElements($path);
-		sendOk($path, "text/html");
-	    }	
+		sendError(404);
 	}
 	else
 	{
-	    #Si fichier : on vérifie son type et on le retourne si il est dans la liste des types supportés, sinon on affiche une erreur 415 (Unsupported Media Type).
-	    @ext = ("html", "png", "txt");
-	    if((split(/\./, "$path"))[-1] ~~ @ext)
-	    {
-		if((split(/\./, "$path"))[-1] eq "html")
+		#Si dossier :
+		if( -d $path)
 		{
-		    $mime = "text/html";
+			#On retourne le fichier "index" si il existe
+			if ( -e "$path/$confs{\"set\"}{index}")
+			{
+				$path = "$path/$confs{\"set\"}{index}";
+				sendOk($path, "text/html");
+			}
+			else
+			{
+				#On retourne le contenu du dossier sinon
+				$path = listElements($path);
+				sendOk($path, "text/html");
+			}
 		}
-		elsif((split(/\./, "$path"))[-1] eq "png")
+		else
 		{
-		    $mime = "image/png";
+			#Si fichier : on vérifie son type et on le retourne si il est dans la liste des types supportés, sinon on affiche une erreur 415 (Unsupported Media Type).
+			@ext = ("html", "png", "txt");
+			if((split(/\./, "$path"))[-1] ~~ @ext)
+			{
+				if((split(/\./, "$path"))[-1] eq "html")
+				{
+					$mime = "text/html";
+				}
+				elsif((split(/\./, "$path"))[-1] eq "png")
+				{
+					$mime = "image/png";
+				}
+				elsif((split(/\./, "$path"))[-1] eq "txt")
+				{
+					$mime = "text/plain";
+				}
+				sendOk($path, $mime);
+			}
+			else
+			{
+				sendError(415);
+			}
 		}
-		elsif((split(/\./, "$path"))[-1] eq "txt")
-		{
-		    $mime = "text/plain";
-		}
-		sendOk($path, $mime);
-	    }
-	    else
-	    {
-		sendError(415);
-	    }
 	}
-    }
 }
 
 #Create a simple HTML page listing all the elements of the given directory.
-sub listElements 
+sub listElements
 {
-    $path = $_[0];
-    $list = "$path/list.html";
-    open(FILE, '>', $list) or die "Open : $list :  $!";
+	$path = $_[0];
+	$list = "$path/list.html";
+	open(FILE, '>', $list) or die "Open : $list :  $!";
 
-    print FILE "<html>\n\t<head>\n\t\t<title>Liste elements</title>\n\t</head>\n\t<body>\n\t\t<center>\n\t\t\t<h1>Liste elements</h1>\n\t\t\t<ul>";
-    foreach $file (glob("$path/*"))
-    {
-	$file = (split(/\//, "$file"))[-1];
-	print FILE "\n\t\t\t\t<li><a href=\"$file\">$file</a></li>";
-    }
+	print FILE "<html>\n\t<head>\n\t\t<title>Liste elements</title>\n\t</head>\n\t<body>\n\t\t<center>\n\t\t\t<h1>Liste elements</h1>\n\t\t\t<ul>";
+	foreach $file (glob("$path/*"))
+	{
+		$file = (split(/\//, "$file"))[-1];
+		print FILE "\n\t\t\t\t<li><a href=\"$file\">$file</a></li>";
+	}
 
-    print FILE "\n\t\t\t</ul>\n\t\t</center>\n\t</body>\n</head>";
-    
-    close(FILE);
-    return $list;
+	print FILE "\n\t\t\t</ul>\n\t\t</center>\n\t</body>\n</head>";
+
+	close(FILE);
+	return $list;
 }
 
 #Send the correct response, with the correct mime type.
 sub sendOk
 {
-    #On a vérifier que le fichier existe avant de l'envoyer ici
-    $path = $_[0];
-    $mime = $_[1];
-    #Ligne de statut : VERSION CODE PHRASE\r\n
-    print("HTTP/1.1 200 \"OK\"\r\n");  
-    #En-tete de reponse :
-    print("Content-type:$mime\r\n");
-    $taille = -s $path;
-    print("Content-Length:$taille\r\n");
-    print("\r\n");
-    #Reponse :
-    open(HANDLE, '<', $path) or die "Open : $path  $!";
-    while(<HANDLE>) 
-    {
-	print;
-    }
-    close(HANDLE) or die "Close : $!";
-    print "\r\n";
-}
-
-#Send an error message. Could be 200, 400, 403, 404, 405, 415, 503 or 505.
-sub sendError 
-{
-    if($_[0] == 400) 
-    {
+	#On a vérifier que le fichier existe avant de l'envoyer ici
+	$path = $_[0];
+	$mime = $_[1];
 	#Ligne de statut : VERSION CODE PHRASE\r\n
-	print("HTTP/1.1 400 \"Bad Request\"\r\n");
-
+	print("HTTP/1.1 200 \"OK\"\r\n");
 	#En-tete de reponse :
-	print("Content-type:text/html\r\n");
-	print("Content-Length:11\r\n");
-
-	print("\r\n");
-	#Reponse : 
-	print("Bad Request\r\n");
-    }
-    elsif($_[0] == 404)
-    {
-	#Requête 404:
-	#Pour le fichier final :
-	if($confs{"route"}{"error"} != undef) 
-	{ 
-	    $errorPage = $confs{"route"}{"error"}; 
-	    $size = -s $errorPage; 
-	}
-	else
-	{
-	    $errorPage = "error.html";
-	    $size = -s $errorPage;
-	}
-	#Ligne de statut : VERSION CODE PHRASE\r\n
-	print("HTTP/1.1 404 \"Not Found\"\r\n");  
-
-	#En-tete de reponse :
-	print("Content-type:text/html\r\n");
-	$taille = -s $errorPage;
+	print("Content-type:$mime\r\n");
+	$taille = -s $path;
 	print("Content-Length:$taille\r\n");
-
 	print("\r\n");
-	#Reponse : 
-
-	open(HANDLE, '<', $errorPage) or die "Open : $!";
-	while(<HANDLE>) 
+	#Reponse :
+	open(HANDLE, '<', $path) or die "Open : $path  $!";
+	while(<HANDLE>)
 	{
-	    print;
+		print;
 	}
 	close(HANDLE) or die "Close : $!";
 	print "\r\n";
-    }
-    elsif($_[0] == 415) 
-    {
-	#Ligne de statut : VERSION CODE PHRASE\r\n
-	print("HTTP/1.1 415 \"Unsupported Media Type\"\r\n");
+}
 
-	#En-tete de reponse :
-	print("Content-type:text/html\r\n");
-	print("Content-Length:22\r\n");
+#Send an error message. Could be 200, 400, 403, 404, 405, 415, 503 or 505.
+sub sendError
+{
+	if($_[0] == 400)
+	{
+		#Ligne de statut : VERSION CODE PHRASE\r\n
+		print("HTTP/1.1 400 \"Bad Request\"\r\n");
 
-	print("\r\n");
-	#Reponse : 
-	print("Unsupported Media Type\r\n");
-    }
-    elsif($_[0] == 505)
-    {
-	#Ligne de statut : VERSION CODE PHRASE\r\n
-	print("HTTP/1.1 505 \"HTTP Version Not Supported\"\r\n");
+		#En-tete de reponse :
+		print("Content-type:text/html\r\n");
+		print("Content-Length:11\r\n");
 
-	#En-tete de reponse :
-	print("Content-type:text/html\r\n");
-	print("Content-Length:26\r\n");
+		print("\r\n");
+		#Reponse :
+		print("Bad Request\r\n");
+	}
+	elsif($_[0] == 404)
+	{
+		#Requête 404:
+		#Pour le fichier final :
+		if($confs{"route"}{"error"} != undef)
+		{
+			$errorPage = $confs{"route"}{"error"};
+			$size = -s $errorPage;
+		}
+		else
+		{
+			$errorPage = "error.html";
+			$size = -s $errorPage;
+		}
+		#Ligne de statut : VERSION CODE PHRASE\r\n
+		print("HTTP/1.1 404 \"Not Found\"\r\n");
 
-	print("\r\n");
-	#Reponse : 
-	print("HTTP Version Not Supported\r\n");
-    }
-    elsif($_[0] == 405)
-    {
-	#Ligne de statut : VERSION CODE PHRASE\r\n
-	print("HTTP/1.1 405 \"Method Not Allowed\"\r\n");
+		#En-tete de reponse :
+		print("Content-type:text/html\r\n");
+		$taille = -s $errorPage;
+		print("Content-Length:$taille\r\n");
 
-	#En-tete de reponse :
-	print("Content-type:text/html\r\n");
-	print("Content-Length:18\r\n");
+		print("\r\n");
+		#Reponse :
 
-	print("\r\n");
-	#Reponse : 
-	print("Method Not Allowed\r\n");
-    }
+		open(HANDLE, '<', $errorPage) or die "Open : $!";
+		while(<HANDLE>)
+		{
+			print;
+		}
+		close(HANDLE) or die "Close : $!";
+		print "\r\n";
+	}
+	elsif($_[0] == 415)
+	{
+		#Ligne de statut : VERSION CODE PHRASE\r\n
+		print("HTTP/1.1 415 \"Unsupported Media Type\"\r\n");
+
+		#En-tete de reponse :
+		print("Content-type:text/html\r\n");
+		print("Content-Length:22\r\n");
+
+		print("\r\n");
+		#Reponse :
+		print("Unsupported Media Type\r\n");
+	}
+	elsif($_[0] == 505)
+	{
+		#Ligne de statut : VERSION CODE PHRASE\r\n
+		print("HTTP/1.1 505 \"HTTP Version Not Supported\"\r\n");
+
+		#En-tete de reponse :
+		print("Content-type:text/html\r\n");
+		print("Content-Length:26\r\n");
+
+		print("\r\n");
+		#Reponse :
+		print("HTTP Version Not Supported\r\n");
+	}
+	elsif($_[0] == 405)
+	{
+		#Ligne de statut : VERSION CODE PHRASE\r\n
+		print("HTTP/1.1 405 \"Method Not Allowed\"\r\n");
+
+		#En-tete de reponse :
+		print("Content-type:text/html\r\n");
+		print("Content-Length:18\r\n");
+
+		print("\r\n");
+		#Reponse :
+		print("Method Not Allowed\r\n");
+	}
 }
