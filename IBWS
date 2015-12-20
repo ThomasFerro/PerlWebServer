@@ -117,14 +117,19 @@ sub readRequest
 			#Parcours des projections spécifiées dans le config, comparaison avec la ressource demandée
 			#Si une des projection correspond, elle est utilisée pour construire la réponse:
 			$bool = undef;
-			%routes = each(%confs{"route"});
-			while(($pattern, $replace) = each(%routes))
+			for $route (keys %confs{"route"})
 			{
+				$chemin = $confs{"route"}{$route};
 				#TODO : Comparer le chemin avec les patterns de la map, utiliser une regex pour changer le chemin cas echeant
-
+				print("Pattern : $route, replace : $chemin\n");
+				if($path =~ $route)
+				{
+					#$replace =~ s!\/+!\/!g;
+					print("Match : pattern : $route, replace : $chemin\n");
+				}
 			}
 			#Envoie une erreur 404 ou un succes selon le résultat de la recherche du fichier
-			checkPath($path);
+			#checkPath($path);
 		}
 	}
 }
