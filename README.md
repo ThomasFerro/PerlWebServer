@@ -5,7 +5,7 @@ TODO
 - [x] Configuration
 - [ ] Requêtes GET
   - [x] Vérification de la requête
-  - [ ] Parcours des projections
+  - [x] Parcours des projections
   - [x] Traitement des requêtes vers le système de fichiers
   - [ ] Traitement des requêtes vers des programmes CGI
 - [ ] Journal des évènements
