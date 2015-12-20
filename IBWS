@@ -121,15 +121,25 @@ sub readRequest
 			{
 				$chemin = $confs{"route"}{$route};
 				#TODO : Comparer le chemin avec les patterns de la map, utiliser une regex pour changer le chemin cas echeant
-				print("Pattern : $route, replace : $chemin\n");
 				if($path =~ $route)
 				{
 					#$replace =~ s!\/+!\/!g;
-					print("Match : pattern : $route, replace : $chemin\n");
+					$chemin =~ s!\/+!\/!g;
+
+					$route = qr/$route/;
+					$_ = $path;
+
+					@matches = m/$route/;
+
+					for (@matches) {
+						$m = $matches[$i++];
+						$chemin =~ s{\\$i}{$m};
+					}
+					m/$chemin/;
 				}
 			}
 			#Envoie une erreur 404 ou un succes selon le résultat de la recherche du fichier
-			#checkPath($path);
+			checkPath($chemin);
 		}
 	}
 }
@@ -159,6 +169,8 @@ sub validateRequest
 #Check the path, redirect it depending on his nature.
 sub checkPath
 {
+	$path = $_[0];
+
 	if (! -e $path)
 	{
 		sendError(404);
