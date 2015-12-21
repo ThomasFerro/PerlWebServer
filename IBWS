@@ -30,15 +30,17 @@ sub checkParameter
 #Start the server
 sub start
 {
-	#TODO : A changer pour respecter le sujet, simplement pour des tests.
+	#TODO : A changer pour respecter le sujet, simplement pour des tests
 	configLoad();
+	createLogFile();
+	writeLog("start", "local", $confs{"set"}{"port"}, "", "");
 	readRequest();
 }
 
 #Stop the server
 sub stop
 {
-
+	writeLog("stop", "local", $confs{"set"}{"port"}, "", "");
 }
 
 #Print the server's status
@@ -80,11 +82,11 @@ sub configLoad
 {
 	#Hashmap des ordres:
 	%confs;
-	$confs{"set"}{$port} = 8080;
-	$confs{"set"}{$error} = "";
-	$confs{"set"}{$index} = "";
-	$confs{"set"}{$logfile} = "";
-	$confs{"set"}{$clients} = 1;
+	$confs{"set"}{"port"} = 8080;
+	$confs{"set"}{"error"} = "";
+	$confs{"set"}{"index"} = "";
+	$confs{"set"}{"logfile"} = "";
+	$confs{"set"}{"clients"} = 1;
 	@routes = ();
 
 	#Ouverture du fichier de config
@@ -293,6 +295,7 @@ sub sendOk
 	}
 	close(HANDLE) or die "Close : $!";
 	print "\r\n";
+	writeLog("get-s", $ENV{REMOTE_ADDR}, "@get", "$path", "200");
 }
 
 #Send an error message. Could be 200, 400, 403, 404, 405, 415, 503 or 505.
@@ -310,6 +313,7 @@ sub sendError
 		print("\r\n");
 		#Reponse :
 		print("Bad Request\r\n");
+		writeLog("get-s", $ENV{REMOTE_ADDR}, "@get", "", "400");
 	}
 	elsif($_[0] == 404)
 	{
@@ -343,6 +347,7 @@ sub sendError
 		}
 		close(HANDLE) or die "Close : $!";
 		print "\r\n";
+		writeLog("get-s", $ENV{REMOTE_ADDR}, "@get", "$errorPage", "404");
 	}
 	elsif($_[0] == 415)
 	{
@@ -356,6 +361,7 @@ sub sendError
 		print("\r\n");
 		#Reponse :
 		print("Unsupported Media Type\r\n");
+		writeLog("get-s", $ENV{REMOTE_ADDR}, "@get", "", "415");
 	}
 	elsif($_[0] == 505)
 	{
@@ -369,6 +375,7 @@ sub sendError
 		print("\r\n");
 		#Reponse :
 		print("HTTP Version Not Supported\r\n");
+		writeLog("get-s", $ENV{REMOTE_ADDR}, "@get", "", "505");
 	}
 	elsif($_[0] == 405)
 	{
@@ -382,5 +389,35 @@ sub sendError
 		print("\r\n");
 		#Reponse :
 		print("Method Not Allowed\r\n");
+		writeLog("get-s", $ENV{REMOTE_ADDR}, "@get", "", "405");
 	}
+}
+
+#Check if the logfile parameter is valid, then create the file or use it if he already exist
+sub createLogFile
+{
+	$logFile = $confs{"set"}{"logfile"};
+	$logFile = "comanche.log" if(! -f $logFile);
+
+	open(LOGFILE, ">>$logFile") or die "Open logFile : $!";
+
+	close LOGFILE or die "Close logFile : $!";
+}
+
+#Write a new log line.
+#Parameters : "Type" - "Source" - "Request" - "Path" - "Response"
+sub writeLog
+{
+	my $date = time();
+	my $type = shift;
+	my $src = shift;
+	my $req = shift;
+	my $path = shift;
+	my $response = shift;
+
+	open(LOGFILE, ">>$logFile") or die "Open logFile : $!";
+
+	print LOGFILE "$date;$type;$src;$req;$path;$response;\n";
+
+	close LOGFILE or die "Close logFile : $!";
 }
