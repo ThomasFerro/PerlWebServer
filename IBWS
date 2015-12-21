@@ -1,5 +1,8 @@
 #!/usr/bin/perl
 
+use Socket;
+use POSIX ":sys_wait_h";
+
 no warnings qw( experimental::autoderef );
 no warnings 'experimental::smartmatch';
 
@@ -27,14 +30,13 @@ sub checkParameter
 	}
 }
 
-#Start the server
+#Call the methods to start the server
 sub start
 {
 	#TODO : A changer pour respecter le sujet, simplement pour des tests
 	configLoad();
 	createLogFile();
-	writeLog("start", "local", $confs{"set"}{"port"}, "", "");
-	readRequest();
+	startServer();
 }
 
 #Stop the server
@@ -46,6 +48,33 @@ sub stop
 #Print the server's status
 sub status
 {
+
+}
+
+#Initialize the handler
+sub startServer
+{
+	$pid = fork();
+	#Le père se quitte, le fils va créer le listener et instancier un autre fils par requête à partir d'ici.
+	if($pid == 0)
+	{
+		socket (SERVER, PF_INET, SOCK_STREAM, getprotobyname('tcp'));
+		setsockopt (SERVER, SOL_SOCKET, SO_REUSEADDR, 1);
+		$addr = sockaddr_in ($confs{"set"}{"port"}, INADDR_ANY);
+		bind(SERVER, $addr) or die ("Bind : $!");
+		SERVER->autoflush(1);
+
+		readRequest();
+
+		close(SERVER);
+	}
+	else
+	{
+		print "Server started !\n";
+		exit 0;
+	}
+
+	writeLog("start", "local", $confs{"set"}{"port"}, "", "");
 
 }
 
@@ -112,28 +141,29 @@ sub configLoad
 sub readRequest
 {
 	#Requete
-	while(<STDIN>)
+	listen(SERVER, SOMAXCONN) or die "Listen : $!";
+	accept(CLIENT, SERVER);
+	$_ = <CLIENT>;
+	@get = split(/\ /);
+	chomp(@get);
+	#Vérification de la validité de la requpête:
+	if(validateRequest() != 0)
 	{
-		@get = split(/\ /);
-		chomp(@get);
-		#Vérification de la validité de la requpête:
-		if(validateRequest() != 0)
+		$path = $get[1];
+
+		$chemin = projectionsCheck();
+
+		#Envoie une erreur 404 ou un succes selon le résultat de la recherche du fichier
+		if (!$chemin)
 		{
-			$path = $get[1];
-
-			$chemin = projectionsCheck();
-
-			#Envoie une erreur 404 ou un succes selon le résultat de la recherche du fichier
-			if (!$chemin)
-			{
-				sendError(404);
-			}
-			else
-			{
-				checkPath($chemin);
-			}
+			sendError(404);
+		}
+		else
+		{
+			checkPath($chemin);
 		}
 	}
+	close CLIENT;
 }
 
 #Check the request's validity
@@ -281,20 +311,20 @@ sub sendOk
 	$path = $_[0];
 	$mime = $_[1];
 	#Ligne de statut : VERSION CODE PHRASE\r\n
-	print("HTTP/1.1 200 \"OK\"\r\n");
+	print CLIENT "HTTP/1.1 200 \"OK\"\r\n";
 	#En-tete de reponse :
-	print("Content-type:$mime\r\n");
+	print CLIENT "Content-type:$mime\r\n";
 	$taille = -s $path;
-	print("Content-Length:$taille\r\n");
-	print("\r\n");
+	print CLIENT "Content-Length:$taille\r\n";
+	print CLIENT "\r\n";
 	#Reponse :
 	open(HANDLE, '<', $path) or die "Open : $path  $!";
 	while(<HANDLE>)
 	{
-		print;
+		print CLIENT;
 	}
 	close(HANDLE) or die "Close : $!";
-	print "\r\n";
+	print CLIENT "\r\n";
 	writeLog("get-s", $ENV{REMOTE_ADDR}, "@get", "$path", "200");
 }
 
@@ -304,15 +334,15 @@ sub sendError
 	if($_[0] == 400)
 	{
 		#Ligne de statut : VERSION CODE PHRASE\r\n
-		print("HTTP/1.1 400 \"Bad Request\"\r\n");
+		print CLIENT "HTTP/1.1 400 \"Bad Request\"\r\n";
 
 		#En-tete de reponse :
-		print("Content-type:text/html\r\n");
-		print("Content-Length:11\r\n");
+		print CLIENT "Content-type:text/html\r\n";
+		print CLIENT "Content-Length:11\r\n";
 
-		print("\r\n");
+		print CLIENT "\r\n";
 		#Reponse :
-		print("Bad Request\r\n");
+		print CLIENT "Bad Request\r\n";
 		writeLog("get-s", $ENV{REMOTE_ADDR}, "@get", "", "400");
 	}
 	elsif($_[0] == 404)
@@ -330,65 +360,65 @@ sub sendError
 			$size = -s $errorPage;
 		}
 		#Ligne de statut : VERSION CODE PHRASE\r\n
-		print("HTTP/1.1 404 \"Not Found\"\r\n");
+		print CLIENT "HTTP/1.1 404 \"Not Found\"\r\n";
 
 		#En-tete de reponse :
-		print("Content-type:text/html\r\n");
+		print CLIENT "Content-type:text/html\r\n";
 		$taille = -s $errorPage;
-		print("Content-Length:$taille\r\n");
+		print CLIENT "Content-Length:$taille\r\n";
 
-		print("\r\n");
+		print CLIENT "\r\n";
 		#Reponse :
 
 		open(HANDLE, '<', $errorPage) or die "Open : $!";
 		while(<HANDLE>)
 		{
-			print;
+			print CLIENT;
 		}
 		close(HANDLE) or die "Close : $!";
-		print "\r\n";
+		print CLIENT "\r\n";
 		writeLog("get-s", $ENV{REMOTE_ADDR}, "@get", "$errorPage", "404");
 	}
 	elsif($_[0] == 415)
 	{
 		#Ligne de statut : VERSION CODE PHRASE\r\n
-		print("HTTP/1.1 415 \"Unsupported Media Type\"\r\n");
+		print CLIENT "HTTP/1.1 415 \"Unsupported Media Type\"\r\n";
 
 		#En-tete de reponse :
-		print("Content-type:text/html\r\n");
-		print("Content-Length:22\r\n");
+		print CLIENT "Content-type:text/html\r\n";
+		print CLIENT "Content-Length:22\r\n";
 
-		print("\r\n");
+		print CLIENT "\r\n";
 		#Reponse :
-		print("Unsupported Media Type\r\n");
+		print CLIENT "Unsupported Media Type\r\n";
 		writeLog("get-s", $ENV{REMOTE_ADDR}, "@get", "", "415");
 	}
 	elsif($_[0] == 505)
 	{
 		#Ligne de statut : VERSION CODE PHRASE\r\n
-		print("HTTP/1.1 505 \"HTTP Version Not Supported\"\r\n");
+		print CLIENT "HTTP/1.1 505 \"HTTP Version Not Supported\"\r\n";
 
 		#En-tete de reponse :
-		print("Content-type:text/html\r\n");
-		print("Content-Length:26\r\n");
+		print CLIENT "Content-type:text/html\r\n";
+		print CLIENT "Content-Length:26\r\n";
 
-		print("\r\n");
+		print CLIENT "\r\n";
 		#Reponse :
-		print("HTTP Version Not Supported\r\n");
+		print CLIENT "HTTP Version Not Supported\r\n";
 		writeLog("get-s", $ENV{REMOTE_ADDR}, "@get", "", "505");
 	}
 	elsif($_[0] == 405)
 	{
 		#Ligne de statut : VERSION CODE PHRASE\r\n
-		print("HTTP/1.1 405 \"Method Not Allowed\"\r\n");
+		print CLIENT "HTTP/1.1 405 \"Method Not Allowed\"\r\n";
 
 		#En-tete de reponse :
-		print("Content-type:text/html\r\n");
-		print("Content-Length:18\r\n");
+		print CLIENT "Content-type:text/html\r\n";
+		print CLIENT "Content-Length:18\r\n";
 
-		print("\r\n");
+		print CLIENT "\r\n";
 		#Reponse :
-		print("Method Not Allowed\r\n");
+		print CLIENT "Method Not Allowed\r\n";
 		writeLog("get-s", $ENV{REMOTE_ADDR}, "@get", "", "405");
 	}
 }
