@@ -256,9 +256,9 @@ sub checkPath
 	if( -d $path)
 	{
 	    #On retourne le fichier "index" si il existe
-	    if ( -e "$path/$confs{\"set\"}{index}")
+	    if ( -e "$path"."$confs{\"set\"}{index}")
 	    {
-		$path = "$path/$confs{\"set\"}{index}";
+		$path = "$path"."$confs{\"set\"}{index}";
 		sendOk($path, "text/html");
 	    }
 	    else
@@ -300,7 +300,7 @@ sub checkPath
 sub listElements
 {
     $path = $_[0];
-    $list = "$path/list.html";
+    $list = "$path"."list.html";
     open(FILE, '>', $list) or die "Open : $list :  $!";
 
     print FILE "<html>\n\t<head>\n\t\t<title>Liste elements</title>\n\t</head>\n\t<body>\n\t\t<center>\n\t\t\t<h1>Liste elements</h1>\n\t\t\t<ul>";
