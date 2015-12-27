@@ -8,6 +8,7 @@ no warnings qw( experimental::autoderef );
 no warnings 'experimental::smartmatch';
 
 $fifopath = "/tmp/IBWSFIFO";
+$SIG{'USR1'} = 'sigRequestDone';
 checkParameter();
 
 sub checkParameter
@@ -75,15 +76,11 @@ sub startServer
     #Le père se quitte, le fils va créer le listener et instancier un autre fils par requête à partir d'ici.
     if($pid == 0)
     {
-	#Creation du fichier caché et ajout du pid du père dans ce dernier
-	open(PID, ">.IBWS") or die "open : $!";
-	print PID "$$\n";
-	print PID $confs{"set"}{"logfile"},"\n";
-	print PID $confs{"set"}{"port"},"\n";
-	close PID;
-
 	$requetesR = 0;
 	$requetesT = 0;
+	
+	$mainPid = $$;
+	writeFile();
 	
 	@fils = ();
 	socket (SERVER, PF_INET, SOCK_STREAM, getprotobyname('tcp'));
@@ -102,10 +99,10 @@ sub startServer
 		    my $index = 0;
 		    $index++ until $fils[$index] eq $mort;
 		    splice(@fils, $index, 1);
-		    print "Mort du fils $mort; Fils restants : ", scalar @fils, "\n";
-		    print "\n\n@fils\n";
+		    sigRequestDone();
 		}
 	    }
+	    writeFile();
 	}
 	
 	close(SERVER);
@@ -168,7 +165,7 @@ sub configLoad
 	s/^[ \t]+//g;
 	#Suppression des commentaires
 	s/#*//g;
-	#
+	
 	if(!/^[\s\n]+/) {
 	    chomp;
 	    #Verification de l'ordre
@@ -187,7 +184,7 @@ sub readRequest
     ($port, $iaddr) = sockaddr_in($addrinfo);
     $ipClient = gethostbyaddr($iaddr, AF_INET);
 
-    $requeteR++;
+    $requetesR++;
 
     if(scalar @fils > $confs{"set"}{"clients"})
     {
@@ -222,6 +219,9 @@ sub readRequest
 		}
 	    }
 	    close CLIENT;
+	    #TODO : Faire fonctionner les signaux
+	    #print "mainPid : $mainPid\n\n";
+	    #kill('USR1',$mainPid);   
 	    exit 0;
 	}
     }
@@ -531,6 +531,16 @@ sub writeLog
 
 sub writeStatus
 {
+    #TODO : Remplacer la leture de fichier par un signal au processus principal + ouverture de tube.
+    open(READ, ".IBWS") or die "open : $!";
+    my $pid = <READ>;
+    my $tmp = <READ>;
+    my $tmp = <READ>;
+    my $requetes = <READ>;
+    my $fils = <READ>;
+    print "PID du processus principal : \t\t$pid";
+    print "Nombre de requêtes traitées / reçues : \t$requetes";
+    print "Nombre d'ouvriers actifs + liste : \t$fils";
     exit 0;
 }
 
@@ -552,5 +562,17 @@ sub createFifo
 #Function called when a son has finished his job.
 sub sigRequestDone
 {
-    $responseT++;
+    $requetesT++;
+}
+
+#TODO : Supprimer une fois le fifo fonctionnel
+sub writeFile
+{
+    open(FILE, ">.IBWS") or die "open : $!";
+    print FILE "$mainPid\n";
+    print FILE $confs{"set"}{"logfile"},"\n";
+    print FILE $confs{"set"}{"port"},"\n";
+    print FILE $requetesT."/".$requetesR."\n";
+    print FILE scalar @fils." @fils\n";
+    close FILE;
 }
