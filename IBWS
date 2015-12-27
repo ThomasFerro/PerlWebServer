@@ -2,10 +2,12 @@
 
 use Socket;
 use POSIX ":sys_wait_h";
+use POSIX qw(mkfifo);
 
 no warnings qw( experimental::autoderef );
 no warnings 'experimental::smartmatch';
 
+$fifopath = "/tmp/IBWSFIFO";
 checkParameter();
 
 sub checkParameter
@@ -33,7 +35,12 @@ sub checkParameter
 #Call the methods to start the server
 sub start
 {
-    #TODO : A changer pour respecter le sujet, simplement pour des tests
+    #createFifo();
+    if(-e ".IBWS")
+    {
+	print "Already started !\n";
+	exit 0;
+    }
     configLoad();
     createLogFile();
     startServer();
@@ -42,7 +49,17 @@ sub start
 #Stop the server
 sub stop
 {
-    writeLog("stop", "local", $confs{"set"}{"port"}, "", "");
+    open(READ, ".IBWS") or die "open : $!";
+    $pidPere = <READ>;
+    $logFile = <READ>;
+    $port = <READ>;
+    chomp($logFile, $port, $pidPere);
+    writeLog("stop", "local", $port, "", "");
+    kill(15,$pidPere);
+    close READ;
+    unlink(".IBWS");
+    print "Server stopped !\n";
+    exit 0;
 }
 
 #Print the server's status
@@ -58,7 +75,17 @@ sub startServer
     #Le père se quitte, le fils va créer le listener et instancier un autre fils par requête à partir d'ici.
     if($pid == 0)
     {
-	$nbfils = 0;
+	#Creation du fichier caché et ajout du pid du père dans ce dernier
+	open(PID, ">.IBWS") or die "open : $!";
+	print PID "$$\n";
+	print PID $confs{"set"}{"logfile"},"\n";
+	print PID $confs{"set"}{"port"},"\n";
+	close PID;
+
+	$requetesR = 0;
+	$requetesT = 0;
+	
+	@fils = ();
 	socket (SERVER, PF_INET, SOCK_STREAM, getprotobyname('tcp'));
 	setsockopt (SERVER, SOL_SOCKET, SO_REUSEADDR, 1);
 	$addr = sockaddr_in ($confs{"set"}{"port"}, INADDR_ANY);
@@ -68,12 +95,15 @@ sub startServer
 	while(true)
 	{
 	    readRequest();
-	    if($nbfils > 0)
+	    if(scalar @fils > 0)
 	    {
-		while(waitpid(-1, WNOHANG))
+		while($mort = waitpid(-1, WNOHANG))
 		{
-		    $nbfils--;
-		    print "Mort d'un fils : nb : $nbfils\n";
+		    my $index = 0;
+		    $index++ until $fils[$index] eq $mort;
+		    splice(@fils, $index, 1);
+		    print "Mort du fils $mort; Fils restants : ", scalar @fils, "\n";
+		    print "\n\n@fils\n";
 		}
 	    }
 	}
@@ -128,6 +158,7 @@ sub configLoad
     $confs{"set"}{"clients"} = 1;
     @routes = ();
 
+
     #Ouverture du fichier de config
     open(CONFIG, "comanche.conf") or die "open: $!";
 
@@ -156,15 +187,18 @@ sub readRequest
     ($port, $iaddr) = sockaddr_in($addrinfo);
     $ipClient = gethostbyaddr($iaddr, AF_INET);
 
-    if($nbfils > $confs{"set"}{"clients"})
+    $requeteR++;
+
+    if(scalar @fils > $confs{"set"}{"clients"})
     {
 	sendError(503);
+	sigRequestDone();
 	close CLIENT;
     }
     else
     {
-	$nbfils++;
 	$pidReq = fork();
+	push @fils, $pidReq if ($pidReq != 0);
 	if($pidReq == 0)
 	{
 	    $_ = <CLIENT>;
@@ -261,7 +295,6 @@ sub projectionsCheck
 sub checkPath
 {
     $path = $_[0];
-
     if (! -e $path)
     {
 	sendError(404);
@@ -288,17 +321,18 @@ sub checkPath
 	{
 	    #Si fichier : on vérifie son type et on le retourne si il est dans la liste des types supportés, sinon on affiche une erreur 415 (Unsupported Media Type).
 	    @ext = ("html", "png", "txt");
-	    if((split(/\./, "$path"))[-1] ~~ @ext)
+	    $ex =(split(/\./, "$path"))[-1];
+	    if($ex ~~ @ext)
 	    {
-		if((split(/\./, "$path"))[-1] eq "html")
+		if($ex eq "html")
 		{
 		    $mime = "text/html";
 		}
-		elsif((split(/\./, "$path"))[-1] eq "png")
+		elsif($ex eq "png")
 		{
 		    $mime = "image/png";
 		}
-		elsif((split(/\./, "$path"))[-1] eq "txt")
+		elsif($ex eq "txt")
 		{
 		    $mime = "text/plain";
 		}
@@ -497,8 +531,26 @@ sub writeLog
 
 sub writeStatus
 {
-    print "PID : \n";
-    print "Requests : \n";
-    print "Workers :  PIDs : \n";
     exit 0;
+}
+
+#Check if the fifo exists, exit the program in this case, create it and write the pid otherwise.
+sub createFifo
+{
+    if (-e $fifopath)
+    {
+	print "Already started !\n";
+	exit 0;
+    }
+    mkfifo($fifopath, 0644) or die "mkfifo : $!";
+    open (WRITE, ">$fifopath") or die "open fifo : $!";
+    WRITE->autoflush(1);
+    print WRITE "$$\n";
+    close WRITE;
+}
+
+#Function called when a son has finished his job.
+sub sigRequestDone
+{
+    $responseT++;
 }
