@@ -8,7 +8,7 @@ no warnings qw( experimental::autoderef );
 no warnings 'experimental::smartmatch';
 
 $fifopath = "/tmp/IBWSFIFO";
-$SIG{'USR1'} = 'sigRequestDone';
+$SIG{USR1} = \&sigRequestDone;
 checkParameter();
 
 sub checkParameter
@@ -17,19 +17,19 @@ sub checkParameter
 
     if ($ARGV[0] eq "start")
     {
-	start();
+		start();
     }
     elsif ($ARGV[0] eq "stop")
     {
-	stop();
+		stop();
     }
     elsif ($ARGV[0] eq "status")
     {
-	status();
+		status();
     }
     else
     {
-	die "Incorrect parameter : start/stop/status\n";
+		die "Incorrect parameter : start/stop/status\n";
     }
 }
 
@@ -39,8 +39,8 @@ sub start
     #createFifo();
     if(-e ".IBWS")
     {
-	print "Already started !\n";
-	exit 0;
+		print "Already started !\n";
+		exit 0;
     }
     configLoad();
     createLogFile();
@@ -50,15 +50,23 @@ sub start
 #Stop the server
 sub stop
 {
+	if(! -e ".IBWS")
+    {
+		print "Already stopped !\n";
+		exit 0;
+    }
+
     open(READ, ".IBWS") or die "open : $!";
     $pidPere = <READ>;
     $logFile = <READ>;
     $port = <READ>;
     chomp($logFile, $port, $pidPere);
-    writeLog("stop", "local", $port, "", "");
     kill(15,$pidPere);
     close READ;
     unlink(".IBWS");
+
+    createLogFile();
+    writeLog("stop", "local", $port, "", "");
     print "Server stopped !\n";
     exit 0;
 }
@@ -76,42 +84,42 @@ sub startServer
     #Le père se quitte, le fils va créer le listener et instancier un autre fils par requête à partir d'ici.
     if($pid == 0)
     {
-	$requetesR = 0;
-	$requetesT = 0;
-	
-	$mainPid = $$;
-	writeFile();
-	
-	@fils = ();
-	socket (SERVER, PF_INET, SOCK_STREAM, getprotobyname('tcp'));
-	setsockopt (SERVER, SOL_SOCKET, SO_REUSEADDR, 1);
-	$addr = sockaddr_in ($confs{"set"}{"port"}, INADDR_ANY);
-	bind(SERVER, $addr) or die ("Bind : $!");
-	SERVER->autoflush(1);
+		$requetesR = 0;
+		$requetesT = 0;
+		
+		$mainPid = $$;
+		writeFile();
+		
+		@fils = ();
+		socket (SERVER, PF_INET, SOCK_STREAM, getprotobyname('tcp'));
+		setsockopt (SERVER, SOL_SOCKET, SO_REUSEADDR, 1);
+		$addr = sockaddr_in ($confs{"set"}{"port"}, INADDR_ANY);
+		bind(SERVER, $addr) or die ("Bind : $!");
+		SERVER->autoflush(1);
 
-	while(true)
-	{
-	    readRequest();
-	    if(scalar @fils > 0)
-	    {
-		while($mort = waitpid(-1, WNOHANG))
+		while(true)
 		{
-		    my $index = 0;
-		    $index++ until $fils[$index] eq $mort;
-		    splice(@fils, $index, 1);
-		    sigRequestDone();
+		    readRequest();
+		    if(scalar @fils > 0)
+		    {
+				while($mort = waitpid(-1, WNOHANG))
+				{
+				    my $index = 0;
+				    $index++ until $fils[$index] eq $mort;
+				    splice(@fils, $index, 1);
+				    sigRequestDone();
+				}
+		    }
+		    writeFile();
 		}
-	    }
-	    writeFile();
-	}
-	
-	close(SERVER);
+		
+		close(SERVER);
     }
     else
     {
-	print "Server started !\n";
-	writeLog("start", "local", $confs{"set"}{"port"}, "", "");
-	exit 0;
+		print "Server started !\n";
+		writeLog("start", "local", $confs{"set"}{"port"}, "", "");
+		exit 0;
     }
 }
 
@@ -119,27 +127,27 @@ sub startServer
 sub order
 {
     if(s/^set ([\w]+)/$1/g) {
-	@order = split / /;
-	@variables = ("port", "error", "index", "logfile", "clients");
-	#Verification de la variable
-	grep(/^$order[0]/, @variables) or die "Invalid variable : $!";
-	$confs{"set"}{$order[0]} = $order[1];
+		@order = split / /;
+		@variables = ("port", "error", "index", "logfile", "clients");
+		#Verification de la variable
+		grep(/^$order[0]/, @variables) or die "Invalid variable : $!";
+		$confs{"set"}{$order[0]} = $order[1];
     }
     else {
-	@order = split / /;
-	if($order[0] eq "route") {
-	    #Regexp1 comme clef, Regexp2 comme valeur:
-	    $order[2] eq "to" or die "Invalid route : $!";
-	    $confs{"route"}{$order[1]} = $order[3];
-	    push @routes, $order[1];
-	}
-	else
-	{
-	    #Regexp1 comme clef, Regexp2 comme valeur:
-	    $order[2] eq "from" or die "Invalid route : $!";
-	    $confs{"exec"}{$order[1]} = $order[3];
-	    push @routes, $order[1];
-	}
+		@order = split / /;
+		if($order[0] eq "route") {
+		    #Regexp1 comme clef, Regexp2 comme valeur:
+		    $order[2] eq "to" or die "Invalid route : $!";
+		    $confs{"route"}{$order[1]} = $order[3];
+		    push @routes, $order[1];
+		}
+		else
+		{
+		    #Regexp1 comme clef, Regexp2 comme valeur:
+		    $order[2] eq "from" or die "Invalid route : $!";
+		    $confs{"exec"}{$order[1]} = $order[3];
+		    push @routes, $order[1];
+		}
     }
 }
 
@@ -161,18 +169,18 @@ sub configLoad
 
     #Fixation des variables
     while(<CONFIG>) {
-	#Suppression des espaces
-	s/^[ \t]+//g;
-	#Suppression des commentaires
-	s/#*//g;
-	
-	if(!/^[\s\n]+/) {
-	    chomp;
-	    #Verification de l'ordre
-	    $order = /^set|^route|^exec/ or die "Invalid order: $!";
-	    #Ajout a la hashmap correspondante
-	    order $order;
-	}
+		#Suppression des espaces
+		s/^[ \t]+//g;
+		#Suppression des commentaires
+		s/#*//g;
+		
+		if(!/^[\s\n]+/) {
+		    chomp;
+		    #Verification de l'ordre
+		    $order = /^set|^route|^exec/ or die "Invalid order: $!";
+		    #Ajout a la hashmap correspondante
+		    order $order;
+		}
     }
 }
 
@@ -188,42 +196,42 @@ sub readRequest
 
     if(scalar @fils > $confs{"set"}{"clients"})
     {
-	sendError(503);
-	sigRequestDone();
-	close CLIENT;
+		print CLIENT sendError(503);
+		sigRequestDone();
+		close CLIENT;
     }
     else
     {
-	$pidReq = fork();
-	push @fils, $pidReq if ($pidReq != 0);
-	if($pidReq == 0)
-	{
-	    $_ = <CLIENT>;
-	    @get = split(/\ /);
-	    chomp(@get);
-	    #Vérification de la validité de la requpête:
-	    if(validateRequest() != 0)
-	    {
-		$path = $get[1];
-
-		$chemin = projectionsCheck();
-
-		#Envoie une erreur 404 ou un succes selon le résultat de la recherche du fichier
-		if (!$chemin)
+		$pidReq = fork();
+		push @fils, $pidReq if ($pidReq != 0);
+		if($pidReq == 0)
 		{
-		    sendError(404);
+		    $_ = <CLIENT>;
+		    @get = split(/\ /);
+		    chomp(@get);
+		    #Vérification de la validité de la requpête:
+		    if(validateRequest() != 0)
+		    {
+				$path = $get[1];
+
+				$chemin = projectionsCheck();
+
+				#Envoie une erreur 404 ou un succes selon le résultat de la recherche du fichier
+				if (!$chemin)
+				{
+				    print CLIENT sendError(404);
+				}
+				else
+				{
+				    print CLIENT checkPath($chemin);
+				}
+		    }
+		    close CLIENT;
+		    #TODO : Faire fonctionner les signaux
+		    #print "mainPid : $mainPid\n\n";
+		    #kill(USR1,$mainPid);   
+		    exit 0;
 		}
-		else
-		{
-		    checkPath($chemin);
-		}
-	    }
-	    close CLIENT;
-	    #TODO : Faire fonctionner les signaux
-	    #print "mainPid : $mainPid\n\n";
-	    #kill('USR1',$mainPid);   
-	    exit 0;
-	}
     }
 }
 
@@ -233,19 +241,19 @@ sub validateRequest
     s/\r//g for @get;
     if((scalar @get != 3) || ($get[0] ne "GET") || ($get[2] ne "HTTP/1.1"))
     {
-	if(scalar @get != 3)
-	{
-	    sendError(400);
-	}
-	elsif($get[2] ne "HTTP/1.1")
-	{
-	    sendError(505);
-	}
-	elsif($get[0] ne "GET")
-	{
-	    sendError(405);
-	}
-	return 0;
+		if(scalar @get != 3)
+		{
+		    print CLIENT sendError(400);
+		}
+		elsif($get[2] ne "HTTP/1.1")
+		{
+		    print CLIENT sendError(505);
+		}
+		elsif($get[0] ne "GET")
+		{
+		    print CLIENT sendError(405);
+		}
+		return 0;
     }
     return 1;
 }
@@ -258,35 +266,35 @@ sub projectionsCheck
     #Si une des projection correspond, elle est utilisée pour construire la réponse:
     for $route (@routes)
     {
-	if($path =~ $route)
-	{
-	    if(exists $confs{"route"}{$route})
-	    {
-		$routeExec = "route";
-	    }
-	    elsif(exists $confs{"exec"}{$route})
-	    {
-		$routeExec = "exec";
-	    }
-	    else
-	    {
-		next;
-	    }
-	    $chemin = $confs{$routeExec}{$route};
-	    $chemin =~ s!\/+!\/!g;
+		if($path =~ $route)
+		{
+		    if(exists $confs{"route"}{$route})
+		    {
+				$routeExec = "route";
+		    }
+		    elsif(exists $confs{"exec"}{$route})
+		    {
+				$routeExec = "exec";
+		    }
+		    else
+		    {
+				next;
+		    }
+		    $chemin = $confs{$routeExec}{$route};
+		    $chemin =~ s!\/+!\/!g;
 
-	    $routeTmp = qr/$route/;
-	    $_ = $path;
+		    $routeTmp = qr/$route/;
+		    $_ = $path;
 
-	    @matches = m/$routeTmp/;
+		    @matches = m/$routeTmp/;
 
-	    for (@matches) {
-		$m = $matches[$i++];
-		$chemin =~ s{\\$i}{$m};
-	    }
-	    m/$chemin/;
-	    last;
-	}
+		    for (@matches) {
+				$m = $matches[$i++];
+				$chemin =~ s{\\$i}{$m};
+		    }
+		    m/$chemin/;
+		    last;
+		}
     }
     return $chemin;
 }
@@ -294,56 +302,60 @@ sub projectionsCheck
 #Check the path, redirect it depending on his nature.
 sub checkPath
 {
+	my $response;
+
     $path = $_[0];
     if (! -e $path)
     {
-	sendError(404);
+		$response = sendError(404);
     }
     else
     {
-	#Si dossier :
-	if( -d $path)
-	{
-	    #On retourne le fichier "index" si il existe
-	    if ( -e "$path"."$confs{\"set\"}{index}")
-	    {
-		$path = "$path"."$confs{\"set\"}{index}";
-		sendOk($path, "text/html");
-	    }
-	    else
-	    {
-		#On retourne le contenu du dossier sinon
-		$path = listElements($path);
-		sendOk($path, "text/html");
-	    }
-	}
-	else
-	{
-	    #Si fichier : on vérifie son type et on le retourne si il est dans la liste des types supportés, sinon on affiche une erreur 415 (Unsupported Media Type).
-	    @ext = ("html", "png", "txt");
-	    $ex =(split(/\./, "$path"))[-1];
-	    if($ex ~~ @ext)
-	    {
-		if($ex eq "html")
+		#Si dossier :
+		if( -d $path)
 		{
-		    $mime = "text/html";
+		    #On retourne le fichier "index" si il existe
+		    if ( -e "$path"."$confs{\"set\"}{index}")
+		    {
+				$path = "$path"."$confs{\"set\"}{index}";
+				$response = sendOk($path, "text/html");
+		    }
+		    else
+		    {
+				#On retourne le contenu du dossier sinon
+				$path = listElements($path);
+				$response = sendOk($path, "text/html");
+		    }
 		}
-		elsif($ex eq "png")
+		else
 		{
-		    $mime = "image/png";
+		    #Si fichier : on vérifie son type et on le retourne si il est dans la liste des types supportés, sinon on affiche une erreur 415 (Unsupported Media Type).
+		    @ext = ("html", "png", "txt");
+		    $ex =(split(/\./, "$path"))[-1];
+		    if($ex ~~ @ext)
+		    {
+				if($ex eq "html")
+				{
+				    $mime = "text/html";
+				}
+				elsif($ex eq "png")
+				{
+				    $mime = "image/png";
+				}
+				elsif($ex eq "txt")
+				{
+				    $mime = "text/plain";
+				}
+				$response = sendOk($path, $mime);
+		    }
+		    else
+		    {
+			$response = sendError(415);
+		    }
 		}
-		elsif($ex eq "txt")
-		{
-		    $mime = "text/plain";
-		}
-		sendOk($path, $mime);
-	    }
-	    else
-	    {
-		sendError(415);
-	    }
-	}
     }
+
+    return $response;
 }
 
 #Create a simple HTML page listing all the elements of the given directory.
@@ -356,8 +368,8 @@ sub listElements
     print FILE "<html>\n\t<head>\n\t\t<title>Liste elements</title>\n\t</head>\n\t<body>\n\t\t<center>\n\t\t\t<h1>Liste elements</h1>\n\t\t\t<ul>";
     foreach $file (glob("$path/*"))
     {
-	$file = (split(/\//, "$file"))[-1];
-	print FILE "\n\t\t\t\t<li><a href=\"$file\">$file</a></li>";
+		$file = (split(/\//, "$file"))[-1];
+		print FILE "\n\t\t\t\t<li><a href=\"$file\">$file</a></li>";
     }
 
     print FILE "\n\t\t\t</ul>\n\t\t</center>\n\t</body>\n</head>";
@@ -369,135 +381,143 @@ sub listElements
 #Send the correct response, with the correct mime type.
 sub sendOk
 {
+	my $response;
+
     #On a vérifier que le fichier existe avant de l'envoyer ici
     $path = $_[0];
     $mime = $_[1];
     #Ligne de statut : VERSION CODE PHRASE\r\n
-    print CLIENT "HTTP/1.1 200 \"OK\"\r\n";
+    $response = "HTTP/1.1 200 \"OK\"\r\n";
     #En-tete de reponse :
-    print CLIENT "Content-type:$mime\r\n";
+    $response .= "Content-type:$mime\r\n";
     $taille = -s $path;
-    print CLIENT "Content-Length:$taille\r\n";
-    print CLIENT "\r\n";
+    $response .= "Content-Length:$taille\r\n";
+    $response .= "\r\n";
     #Reponse :
     open(HANDLE, '<', $path) or die "Open : $path  $!";
     while(<HANDLE>)
     {
-	print CLIENT;
+		$response .= $_;
     }
     close(HANDLE) or die "Close : $!";
-    print CLIENT "\r\n";
+    $response .= "\r\n";
     writeLog("get-s", $ipClient, "@get", "$path", "200");
+
+    return $response;
 }
 
 #Send an error message. Could be 200, 400, 403, 404, 405, 415, 503 or 505.
 sub sendError
 {
+	my $response;
+
     if($_[0] == 400)
     {
-	#Ligne de statut : VERSION CODE PHRASE\r\n
-	print CLIENT "HTTP/1.1 400 \"Bad Request\"\r\n";
+		#Ligne de statut : VERSION CODE PHRASE\r\n
+		$response = "HTTP/1.1 400 \"Bad Request\"\r\n";
 
-	#En-tete de reponse :
-	print CLIENT "Content-type:text/html\r\n";
-	print CLIENT "Content-Length:11\r\n";
+		#En-tete de reponse :
+		$response .= "Content-type:text/html\r\n";
+		$response .= "Content-Length:11\r\n";
 
-	print CLIENT "\r\n";
-	#Reponse :
-	print CLIENT "Bad Request\r\n";
-	writeLog("get-s", $ipClient, "@get", "", "400");
+		$response .= "\r\n";
+		#Reponse :
+		$response .= "Bad Request\r\n";
+		writeLog("get-s", $ipClient, "@get", "", "400");
     }
     elsif($_[0] == 404)
     {
-	#Requête 404:
-	#Pour le fichier final :
-	if($confs{"route"}{"error"} != undef)
-	{
-	    $errorPage = $confs{"route"}{"error"};
-	    $size = -s $errorPage;
-	}
-	else
-	{
-	    $errorPage = "error.html";
-	    $size = -s $errorPage;
-	}
-	#Ligne de statut : VERSION CODE PHRASE\r\n
-	print CLIENT "HTTP/1.1 404 \"Not Found\"\r\n";
+		#Requête 404:
+		#Pour le fichier final :
+		if($confs{"route"}{"error"} != undef)
+		{
+		    $errorPage = $confs{"route"}{"error"};
+		    $size = -s $errorPage;
+		}
+		else
+		{
+		    $errorPage = "error.html";
+		    $size = -s $errorPage;
+		}
+		#Ligne de statut : VERSION CODE PHRASE\r\n
+		$response =  "HTTP/1.1 404 \"Not Found\"\r\n";
 
-	#En-tete de reponse :
-	print CLIENT "Content-type:text/html\r\n";
-	$taille = -s $errorPage;
-	print CLIENT "Content-Length:$taille\r\n";
+		#En-tete de reponse :
+		$response .=  "Content-type:text/html\r\n";
+		$taille = -s $errorPage;
+		$response .=  "Content-Length:$taille\r\n";
 
-	print CLIENT "\r\n";
-	#Reponse :
+		$response .=  "\r\n";
+		#Reponse :
 
-	open(HANDLE, '<', $errorPage) or die "Open : $!";
-	while(<HANDLE>)
-	{
-	    print CLIENT;
-	}
-	close(HANDLE) or die "Close : $!";
-	print CLIENT "\r\n";
-	writeLog("get-s", $ipClient, "@get", "$errorPage", "404");
+		open(HANDLE, '<', $errorPage) or die "Open : $!";
+		while(<HANDLE>)
+		{
+		    $response .= $_ ;
+		}
+		close(HANDLE) or die "Close : $!";
+		$response .= "\r\n";
+		writeLog("get-s", $ipClient, "@get", "$errorPage", "404");
     }
     
     elsif($_[0] == 405)
     {
-	#Ligne de statut : VERSION CODE PHRASE\r\n
-	print CLIENT "HTTP/1.1 405 \"Method Not Allowed\"\r\n";
+		#Ligne de statut : VERSION CODE PHRASE\r\n
+		$response = "HTTP/1.1 405 \"Method Not Allowed\"\r\n";
 
-	#En-tete de reponse :
-	print CLIENT "Content-type:text/html\r\n";
-	print CLIENT "Content-Length:18\r\n";
+		#En-tete de reponse :
+		$response .=  "Content-type:text/html\r\n";
+		$response .=  "Content-Length:18\r\n";
 
-	print CLIENT "\r\n";
-	#Reponse :
-	print CLIENT "Method Not Allowed\r\n";
-	writeLog("get-s", $ipClient, "@get", "", "405");
+		$response .=  "\r\n";
+		#Reponse :
+		$response .=  "Method Not Allowed\r\n";
+		writeLog("get-s", $ipClient, "@get", "", "405");
     }
     elsif($_[0] == 415)
     {
-	#Ligne de statut : VERSION CODE PHRASE\r\n
-	print CLIENT "HTTP/1.1 415 \"Unsupported Media Type\"\r\n";
+		#Ligne de statut : VERSION CODE PHRASE\r\n
+		$response = "HTTP/1.1 415 \"Unsupported Media Type\"\r\n";
 
-	#En-tete de reponse :
-	print CLIENT "Content-type:text/html\r\n";
-	print CLIENT "Content-Length:22\r\n";
+		#En-tete de reponse :
+		$response .=  "Content-type:text/html\r\n";
+		$response .=  "Content-Length:22\r\n";
 
-	print CLIENT "\r\n";
-	#Reponse :
-	print CLIENT "Unsupported Media Type\r\n";
-	writeLog("get-s", $ipClient, "@get", "", "415");
+		$response .=  "\r\n";
+		#Reponse :
+		$response .=  "Unsupported Media Type\r\n";
+		writeLog("get-s", $ipClient, "@get", "", "415");
     }
     elsif($_[0] == 503)
     {
-	#Ligne de statut : VERSION CODE PHRASE\r\n
-	print CLIENT "HTTP/1.1 503 \"Service Unavailable\"\r\n";
+		#Ligne de statut : VERSION CODE PHRASE\r\n
+		$response =  "HTTP/1.1 503 \"Service Unavailable\"\r\n";
 
-	#En-tete de reponse :
-	print CLIENT "Content-type:text/html\r\n";
-	print CLIENT "Content-Length:19\r\n";
+		#En-tete de reponse :
+		$response .=  "Content-type:text/html\r\n";
+		$response .=  "Content-Length:19\r\n";
 
-	print CLIENT "\r\n";
-	#Reponse :
-	print CLIENT "Service Unavailable\r\n";
-	writeLog("get-s", $ipClient, "@get", "", "503");
+		$response .=  "\r\n";
+		#Reponse :
+		$response .=  "Service Unavailable\r\n";
+		writeLog("get-s", $ipClient, "@get", "", "503");
     }
     elsif($_[0] == 505)
     {
-	#Ligne de statut : VERSION CODE PHRASE\r\n
-	print CLIENT "HTTP/1.1 505 \"HTTP Version Not Supported\"\r\n";
+		#Ligne de statut : VERSION CODE PHRASE\r\n
+		$response .=  "HTTP/1.1 505 \"HTTP Version Not Supported\"\r\n";
 
-	#En-tete de reponse :
-	print CLIENT "Content-type:text/html\r\n";
-	print CLIENT "Content-Length:26\r\n";
+		#En-tete de reponse :
+		$response .=  "Content-type:text/html\r\n";
+		$response .=  "Content-Length:26\r\n";
 
-	print CLIENT "\r\n";
-	#Reponse :
-	print CLIENT "HTTP Version Not Supported\r\n";
-	writeLog("get-s", $ipClient, "@get", "", "505");
+		$response .=  "\r\n";
+		#Reponse :
+		$response .=  "HTTP Version Not Supported\r\n";
+		writeLog("get-s", $ipClient, "@get", "", "505");
     }
+
+    return $response;
 }
 
 #Check if the logfile parameter is valid, then create the file or use it if he already exist
@@ -549,8 +569,8 @@ sub createFifo
 {
     if (-e $fifopath)
     {
-	print "Already started !\n";
-	exit 0;
+		print "Already started !\n";
+		exit 0;
     }
     mkfifo($fifopath, 0644) or die "mkfifo : $!";
     open (WRITE, ">$fifopath") or die "open fifo : $!";
