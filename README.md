@@ -1,5 +1,18 @@
 # PerlWebServer
 
+## Sommaire
+
+  - Todo list
+  - Guide utilisateur rapide
+    - Configuration
+    - Lancer le serveur
+    - Tester le serveur
+  - Documentation technique
+    - Lancement du serveur
+    - Gestion des connexions
+    - Fermeture du serveur
+    - Affichage du status
+
 ## TODO
 
 - [x] Configuration
