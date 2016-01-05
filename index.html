@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href='https://fonts.googleapis.com/css?family=Architects+Daughter' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print">
+
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <title>IBWS - Perl Web Server by ThomasFerro</title>
+  </head>
+
+  <body>
+    <header>
+      <div class="inner">
+        <h1>IBWS - Perl Web Server</h1>
+        <h2>Web Server in Perl</h2>
+        <a href="https://github.com/ThomasFerro/PerlWebServer" class="button"><small>View project on</small> GitHub</a>
+      </div>
+    </header>
+
+    <div id="content-wrapper">
+      <div class="inner clearfix">
+        <section id="main-content">
+          <h1>
+<a id="perlwebserver" class="anchor" href="#perlwebserver" aria-hidden="true"><span class="octicon octicon-link"></span></a>PerlWebServer</h1>
+
+<h2>
+<a id="sommaire" class="anchor" href="#sommaire" aria-hidden="true"><span class="octicon octicon-link"></span></a>Sommaire</h2>
+
+<ul>
+<li>Todo list</li>
+<li>Guide utilisateur rapide
+
+<ul>
+<li>Configuration</li>
+<li>Lancer le serveur</li>
+<li>Tester le serveur</li>
+</ul>
+</li>
+<li>Documentation technique
+
+<ul>
+<li>Lancement du serveur</li>
+<li>Gestion des connexions</li>
+<li>Fermeture du serveur</li>
+<li>Affichage du status</li>
+</ul>
+</li>
+</ul>
+
+<h2>
+<a id="todo" class="anchor" href="#todo" aria-hidden="true"><span class="octicon octicon-link"></span></a>TODO</h2>
+
+<ul>
+<li>[x] Configuration</li>
+<li>[ ] Requêtes GET
+
+<ul>
+<li>[x] Vérification de la requête</li>
+<li>[x] Parcours des projections</li>
+<li>[x] Traitement des requêtes vers le système de fichiers</li>
+<li>[ ] Traitement des requêtes vers des programmes CGI</li>
+</ul>
+</li>
+<li>[x] Journal des évènements</li>
+<li>[x] Traitement des requêtes en parallèle</li>
+<li>[ ] Gestion des erreurs
+
+<ul>
+<li>[x] 200 OK</li>
+<li>[x] 400 Bad Request</li>
+<li>[ ] 403 Forbidden</li>
+<li>[x] 404 Not Found</li>
+<li>[x] 405 Method Not Allowed</li>
+<li>[x] 415 Unsupported Media Type</li>
+<li>[x] 503 Service Unavailable</li>
+<li>[x] 505 HTTP Version Not Supported</li>
+</ul>
+</li>
+<li>[x] Utilisation</li>
+</ul>
+
+<h2>
+<a id="guide-utilisateur-rapide" class="anchor" href="#guide-utilisateur-rapide" aria-hidden="true"><span class="octicon octicon-link"></span></a>Guide utilisateur rapide</h2>
+
+<h3>
+<a id="configuration" class="anchor" href="#configuration" aria-hidden="true"><span class="octicon octicon-link"></span></a>Configuration</h3>
+
+<p>Avant de lancer le serveur, veuillez ajuster les paramètres à vos besoins dans le fichier <strong>commanche.conf</strong> en suivant le modèle déja présent. Vous pourrez y modifier :</p>
+
+<ul>
+<li>Le port d'écoute;</li>
+<li>La page d'erreur par défaut;</li>
+<li>Le fichier index dans les répertoires;</li>
+<li>Le nombre de connexions simultanées maximum;</li>
+<li>Le fichier de journal des évènements (attention aux droits sur le dossier contenant ce fichier);</li>
+<li>Les routes de projection.</li>
+</ul>
+
+<h3>
+<a id="lancer-le-serveur" class="anchor" href="#lancer-le-serveur" aria-hidden="true"><span class="octicon octicon-link"></span></a>Lancer le serveur</h3>
+
+<p>Pour lancer le serveur, il vous suffit d'éxecuter, depuis le répertoire contenant votre script et votre fichier de configuration, la commande <code>./commanche start</code>.</p>
+
+<p>Vous pouvez à tout moment arrêter le serveur en utilisant la commande <code>./commanche stop</code>.</p>
+
+<p>De plus, vous pouvez récupérer les informations concernant votre serveur en utilisant la commande <code>./commanche status</code>. Cette dernière vous affichera le PID du processus principal, le nombre de requêtes reçues et traitées ainsi que le nombre d'ouvriers actifs et leur PID.</p>
+
+<h3>
+<a id="tester-le-serveur" class="anchor" href="#tester-le-serveur" aria-hidden="true"><span class="octicon octicon-link"></span></a>Tester le serveur</h3>
+
+<p>Vous pouvez tester votre serveur simplement avec un navigateur, sur la même machine que le serveur. Pour ce faire, entrez simplement l'url <em>localhost:8080</em>, 8080 étant le port et sera donc à changer si vous avez modifié le fichier de configuration.  </p>
+
+<h2>
+<a id="documentation-technique" class="anchor" href="#documentation-technique" aria-hidden="true"><span class="octicon octicon-link"></span></a>Documentation technique</h2>
+
+<h3>
+<a id="lancement-du-serveur" class="anchor" href="#lancement-du-serveur" aria-hidden="true"><span class="octicon octicon-link"></span></a>Lancement du serveur</h3>
+
+<p>Au lancement du serveur, le script vérifie si ce dernier n'est pas déjà lancé grâce au fichier caché puis lancer le chargement des configuration. Il ne se lance pas si un des paramètres est incorrect. </p>
+
+<p>Après le chargement des configurations, le serveru créer le fichier de log.</p>
+
+<p>La dernière étape dans le démarrage du serveur et de créer un fils qui s'occupera de la gestion des connexions afin de rendre la main sur le terminal.</p>
+
+<h3>
+<a id="gestion-des-connexions" class="anchor" href="#gestion-des-connexions" aria-hidden="true"><span class="octicon octicon-link"></span></a>Gestion des connexions</h3>
+
+<p>Le fils initialise les paramètres et la socket du serveur puis rentre dans une boucle infinie qui accepte les connexions puis arrête les fils qui ont terminés leur travail.</p>
+
+<p>Les connexions, donc, se font en écoutant sur le port spécifier et en acceptant les demande de connexions dans la limite de connexions maximum. Si cette limite est dépassée, le serveur envoie lui-même une erreur au client.</p>
+
+<p>Sinon, le serveur créer un fils qui va s'occuper d'appeler la méthode de vérification de requête et envoyer l'erreur correspondante si besoin est. Enfin, si la requête est valide, il va parcourir les projections à la recherche du fichier demandé et enverra la page demandée si elle existe, ou une liste des éléments du dossier si la ressource demandée en est un. Le fils ferme ensuite la connexion au client et notifie le processus principal du succès de la requête avant de se fermer.</p>
+
+<h3>
+<a id="fermeture-du-serveur" class="anchor" href="#fermeture-du-serveur" aria-hidden="true"><span class="octicon octicon-link"></span></a>Fermeture du serveur</h3>
+
+<p>La fermeture du serveur peut intérvenir n'importe quand et se contente de fermer le processus principal et supprimer le fichier caché.</p>
+
+<h3>
+<a id="affichage-du-status" class="anchor" href="#affichage-du-status" aria-hidden="true"><span class="octicon octicon-link"></span></a>Affichage du status</h3>
+
+<p>La version actuelle de l'écriture du status du serveur utilise un fichier que le serveur rempli à chaque requête. Le processus d'écriture de status y récupère le PID du processus principal, le nombre de requêtes reçues et terminées et le nombre d'ouvrier actifs ainsi que leur PID.</p>
+
+<p>Toutes les requêtes, les ouvertures du serveur et les fermetures de ce dernier sont consignées dans le journal d'événements.</p>
+        </section>
+
+        <aside id="sidebar">
+          <a href="https://github.com/ThomasFerro/PerlWebServer/zipball/master" class="button">
+            <small>Download</small>
+            .zip file
+          </a>
+          <a href="https://github.com/ThomasFerro/PerlWebServer/tarball/master" class="button">
+            <small>Download</small>
+            .tar.gz file
+          </a>
+
+          <p class="repo-owner"><a href="https://github.com/ThomasFerro/PerlWebServer"></a> is maintained by <a href="https://github.com/ThomasFerro">ThomasFerro</a>.</p>
+
+          <p>This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the Architect theme by <a href="https://twitter.com/jasonlong">Jason Long</a>.</p>
+        </aside>
+      </div>
+    </div>
+
+  
+  </body>
+</html>
